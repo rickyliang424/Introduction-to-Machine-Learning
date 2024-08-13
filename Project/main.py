@@ -1,0 +1,293 @@
+#%% Load Data
+
+#data analysis libraries
+import numpy as np
+import pandas as pd
+
+#visualization libraries
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+#ignore warnings
+import warnings
+warnings.filterwarnings('ignore')
+
+#import train and test CSV files
+train = pd.read_csv("./train.csv")
+test = pd.read_csv("./test.csv")
+#take a look at the training data
+train.describe(include="all")
+
+#-------------------------------------------------------------------
+#Visualize the count of number of survivors
+ax=sns.countplot(train['Survived'],label="Count")
+for p in ax.patches:
+    ax.annotate(f'\n{p.get_height()}', (p.get_x()+0.2, p.get_height()), ha='center', va='top', color='white', size=18)
+plt.show()
+
+#%% Data Preprocessing
+
+#draw a bar plot of survival by sex
+sns.barplot(x="Sex", y="Survived", data=train)
+#print percentages of females vs. males that survive
+print("Percentage of females who survived:", train["Survived"][train["Sex"] == 'female'].value_counts(normalize = True)[1]*100)
+print("Percentage of males who survived:", train["Survived"][train["Sex"] == 'male'].value_counts(normalize = True)[1]*100)
+#-------------------------------------------------------------------
+#map each Sex value to a numerical value
+sex_mapping = {"male": 0, "female": 1}
+train['Sex'] = train['Sex'].map(sex_mapping)
+test['Sex'] = test['Sex'].map(sex_mapping)
+#-------------------------------------------------------------------
+#draw a bar plot of survival by Pclass
+sns.barplot(x="Pclass", y="Survived", data=train)
+
+#print percentage of people by Pclass that survived
+print("Percentage of Pclass = 1 who survived:", train["Survived"][train["Pclass"] == 1].value_counts(normalize = True)[1]*100)
+
+print("Percentage of Pclass = 2 who survived:", train["Survived"][train["Pclass"] == 2].value_counts(normalize = True)[1]*100)
+
+print("Percentage of Pclass = 3 who survived:", train["Survived"][train["Pclass"] == 3].value_counts(normalize = True)[1]*100)
+
+data = [train, test]
+for dataset in data:
+    dataset['Fare'] = dataset['Fare'].fillna(np.mean(dataset['Fare']))
+    dataset['relatives'] = dataset['SibSp'] + dataset['Parch']
+    dataset['fare_pp'] = dataset['Fare'] / (dataset['relatives'] + 1)
+
+    dataset['Pclass'] = dataset['Pclass'].fillna(0.)
+    index1 = np.array(dataset[(dataset['Pclass'] == 0.) & (dataset['fare_pp'] >= 20.)].index)
+    index2 = np.array(dataset[(dataset['Pclass'] == 0.) & (dataset['fare_pp'] > 10.) & (dataset['fare_pp'] < 20.)].index)
+    index3 = np.array(dataset[(dataset['Pclass'] == 0.) & (dataset['fare_pp'] <= 10.)].index)
+
+    pclass = np.array(dataset['Pclass'])
+    for i in range(len(index1)):
+        pclass[index1[i]] = 1.
+    for i in range(len(index2)):
+        pclass[index2[i]] = 2.
+    for i in range(len(index3)):
+        pclass[index3[i]] = 3.
+
+    dataset['Pclass'] = pd.DataFrame(pclass)
+
+#-------------------------------------------------------------------
+#draw a bar plot for SibSp vs. survival
+sns.barplot(x="SibSp", y="Survived", data=train)
+
+#I won't be printing individual percent values for all of these.
+print("Percentage of SibSp = 0 who survived:", train["Survived"][train["SibSp"] == 0].value_counts(normalize = True)[1]*100)
+
+print("Percentage of SibSp = 1 who survived:", train["Survived"][train["SibSp"] == 1].value_counts(normalize = True)[1]*100)
+
+print("Percentage of SibSp = 2 who survived:", train["Survived"][train["SibSp"] == 2].value_counts(normalize = True)[1]*100)
+
+print("Percentage of SibSp = 3 who survived:", train["Survived"][train["SibSp"] == 3].value_counts(normalize = True)[1]*100)
+
+print("Percentage of SibSp = 4 who survived:", train["Survived"][train["SibSp"] == 4].value_counts(normalize = True)[1]*100)
+
+#-------------------------------------------------------------------
+#draw a bar plot for Parch vs. survival
+sns.barplot(x="Parch", y="Survived", data=train)
+plt.show()
+
+print("Percentage of Parch = 0 who survived:", train["Survived"][train["Parch"] == 0].value_counts(normalize = True)[1]*100)
+
+print("Percentage of Parch = 1 who survived:", train["Survived"][train["Parch"] == 1].value_counts(normalize = True)[1]*100)
+
+print("Percentage of Parch = 2 who survived:", train["Survived"][train["Parch"] == 2].value_counts(normalize = True)[1]*100)
+
+print("Percentage of Parch = 3 who survived:", train["Survived"][train["Parch"] == 3].value_counts(normalize = True)[1]*100)
+
+print("Percentage of Parch = 4 who survived:", train["Survived"][train["Parch"] == 4].value_counts(normalize = True)[1]*100)
+
+#-------------------------------------------------------------------
+#label Age and fillin missing value
+data = [train,test]
+for dataset in data:
+    mean = dataset["Age"].mean()
+    std = dataset["Age"].std()
+    is_null = dataset["Age"].isnull().sum()
+    # compute random numbers between the mean, std and is_null
+    rand_age = np.random.randint(mean - std, mean + std, size = is_null)
+    # fill NaN values in Age column with random values generated
+    age_slice = dataset["Age"].copy()
+    age_slice[np.isnan(age_slice)] = rand_age
+    dataset["Age"] = age_slice
+    dataset["Age"] = train["Age"].astype(int)
+
+bins = [-1, 5, 12, 18, 24, 35, 60, np.inf]
+labels = ['Baby', 'Child', 'Teenager', 'Student', 'Young Adult', 'Adult', 'Senior']
+train['AgeGroup'] = pd.cut(train["Age"], bins, labels = labels)
+test['AgeGroup'] = pd.cut(test["Age"], bins, labels = labels)
+
+#map each Age value to a numerical value
+age_mapping = {'Baby': 1, 'Child': 2, 'Teenager': 3, 'Student': 4, 'Young Adult': 5, 'Adult': 6, 'Senior': 7}
+train['AgeGroup'] = train['AgeGroup'].map(age_mapping)
+test['AgeGroup'] = test['AgeGroup'].map(age_mapping)
+
+#draw a bar plot of survival by AgeGroup
+sns.barplot(x="AgeGroup", y="Survived", data=train)
+
+#print percentage of people by FareBand that survived
+print("Percentage of AgeGroup = 1 who survived:", train["Survived"][train["AgeGroup"] == 1].value_counts(normalize = True)[1]*100)
+
+print("Percentage of AgeGroup = 2 who survived:", train["Survived"][train["AgeGroup"] == 2].value_counts(normalize = True)[1]*100)
+
+print("Percentage of AgeGroup = 3 who survived:", train["Survived"][train["AgeGroup"] == 3].value_counts(normalize = True)[1]*100)
+
+print("Percentage of AgeGroup = 4 who survived:", train["Survived"][train["AgeGroup"] == 4].value_counts(normalize = True)[1]*100)
+
+print("Percentage of AgeGroup = 5 who survived:", train["Survived"][train["AgeGroup"] == 5].value_counts(normalize = True)[1]*100)
+
+print("Percentage of AgeGroup = 6 who survived:", train["Survived"][train["AgeGroup"] == 6].value_counts(normalize = True)[1]*100)
+
+print("Percentage of AgeGroup = 7 who survived:", train["Survived"][train["AgeGroup"] == 7].value_counts(normalize = True)[1]*100)
+
+#-------------------------------------------------------------------
+#now we need to fill in the missing values in the Embarked feature
+print("Number of people embarking in Southampton (S):")
+southampton = train[train["Embarked"] == "S"].shape[0]
+print(southampton)
+
+print("Number of people embarking in Cherbourg (C):")
+cherbourg = train[train["Embarked"] == "C"].shape[0]
+print(cherbourg)
+
+print("Number of people embarking in Queenstown (Q):")
+queenstown = train[train["Embarked"] == "Q"].shape[0]
+print(queenstown)
+
+#replacing the missing values in the Embarked feature with S
+#It's clear that the majority of people embarked in Southampton (S). Let's go ahead and fill in the missing values with S.
+test = test.fillna({"Embarked": "S"})
+#map each Embarked value to a numerical value
+embarked_mapping = {"S": 1, "C": 2, "Q": 3}
+train['Embarked'] = train['Embarked'].map(embarked_mapping)
+test['Embarked'] = test['Embarked'].map(embarked_mapping)
+#draw a bar plot of survival by Embarked
+sns.barplot(x="Embarked", y="Survived", data=train)
+
+#print percentage of people by Embarked that survived
+print("Percentage of Embarked = 1 who survived:", train["Survived"][train["Embarked"] == 1].value_counts(normalize = True)[1]*100)
+
+print("Percentage of Embarked = 2 who survived:", train["Survived"][train["Embarked"] == 2].value_counts(normalize = True)[1]*100)
+
+print("Percentage of Embarked = 3 who survived:", train["Survived"][train["Embarked"] == 3].value_counts(normalize = True)[1]*100)
+
+#-------------------------------------------------------------------
+# label the Name according to the first letter of last name
+# Train dataset
+name_letter = train['Name'].map(lambda x: ord(x[0].upper())-64)
+name_letter = name_letter.rename('Name_Letter')
+train=pd.concat([train, name_letter], axis=1)
+# label the Name according to the first letter of last name
+# Test dataset
+name_letter = test['Name'].map(lambda x: ord(x[0].upper())-64)
+name_letter = name_letter.rename('Name_Letter')
+test=pd.concat([test, name_letter], axis=1)
+
+#-------------------------------------------------------------------
+#fill in missing Fare value in mean fare
+
+for x in range(len(train["Fare"])):
+    if pd.isnull(train["Fare"][x]):
+        train["Fare"][x] = round(train["Fare"].mean(), 4)
+#-------------------------------------------------------------------
+#Creat a new feature: # of relatives and Along or not alone
+data = [train, test]
+for dataset in data:
+    dataset['relatives'] = dataset['SibSp'] + dataset['Parch']
+    dataset.loc[dataset['relatives'] > 0, 'not_alone'] = 0
+    dataset.loc[dataset['relatives'] == 0, 'not_alone'] = 1
+    dataset['not_alone'] = dataset['not_alone'].astype(int)
+train['not_alone'].value_counts()
+
+print(pd.isnull(train).sum())
+print(pd.isnull(test).sum())
+
+#-------------------------------------------------------------------
+#Cleaning Data
+train = train.drop(['PassengerId'], axis = 1)
+test = test.drop(['PassengerId'], axis = 1)
+train = train.drop(['Cabin'], axis = 1)
+test = test.drop(['Cabin'], axis = 1)
+train = train.drop(['Ticket'], axis = 1)
+test = test.drop(['Ticket'], axis = 1)
+train = train.drop(['Name'], axis = 1)
+test = test.drop(['Name'], axis = 1)
+train = train.drop(['Age'], axis = 1)
+test = test.drop(['Age'], axis = 1)
+train = train.drop(['Fare'], axis = 1)
+test = test.drop(['Fare'], axis = 1)
+
+# train.to_csv ('train_Team12.csv', index = False, header=True)
+# test.to_csv ('test_Team12.csv', index = False, header=True)
+
+#%% Prediction
+
+import numpy as np
+import pandas as pd
+from numpy import log as ln
+
+# Dataframe to array
+train_data = np.array(train)
+test_data = np.array(test)
+
+# Check missing value
+print(pd.DataFrame(train_data).isnull().sum())
+print(pd.DataFrame(test_data).isnull().sum())
+
+# Split data to training and testing data
+X_train = train_data[:,1:]
+y_train = train_data[:,0]
+X_test = test_data
+
+# -----------------------------------------------------------------------------
+# Gaussian NB Classifier
+
+def split_classes(X_train, y_train):
+    C1_count = (y_train == 1).sum()
+    C2_count = (y_train == 0).sum()
+    X_train_C1 = np.zeros([C1_count, X_train.shape[1]])
+    X_train_C2 = np.zeros([C2_count, X_train.shape[1]])
+    y_train_C1 = np.zeros([C1_count, 1])
+    y_train_C2 = np.zeros([C2_count, 1])
+    c1 = 0
+    c2 = 0
+    for i in range(len(y_train)):
+        if y_train[i] == 1.:
+            X_train_C1[c1] = X_train[i]
+            y_train_C1[c1] = y_train[i]
+            c1 = c1 + 1
+        else:
+            X_train_C2[c2] = X_train[i]
+            y_train_C2[c2] = y_train[i]
+            c2 = c2 + 1
+    return X_train_C1, X_train_C2, y_train_C1, y_train_C2
+
+def Gaussian_NB(X_train, y_train, X_test):
+    y_pred = np.zeros(len(X_test))
+    X_train_C1, X_train_C2, y_train_C1, y_train_C2 = split_classes(X_train, y_train)
+    C1_mean = np.mean(X_train_C1, axis=0)
+    C2_mean = np.mean(X_train_C2, axis=0)
+    C1_std = np.std(X_train_C1, axis=0, ddof=1)
+    C2_std = np.std(X_train_C2, axis=0, ddof=1)
+    C1_prob = len(y_train_C1) / len(y_train)
+    C2_prob = len(y_train_C2) / len(y_train)
+    for i in range(len(X_test)):
+        g1 = ln(C1_prob) - 0.5 * np.sum(( (X_test[i] - C1_mean) / C1_std )**2)
+        g2 = ln(C2_prob) - 0.5 * np.sum(( (X_test[i] - C2_mean) / C2_std )**2)
+        if g1 > g2:
+            y_pred[i] = 1
+        else:
+            y_pred[i] = 0
+    return y_pred
+
+y_pred = Gaussian_NB(X_train, y_train, X_test)
+
+# -----------------------------------------------------------------------------
+# Export csv
+y_pred = y_pred.astype(int)
+PassengerId = pd.DataFrame(np.arange(892,1310,1), columns=['PassengerId'])
+Survived = pd.DataFrame(y_pred, columns=['Survived'])
+Prediction = pd.concat([PassengerId, Survived], axis=1)
+Prediction.to_csv('./Team_12.csv', index=False)
